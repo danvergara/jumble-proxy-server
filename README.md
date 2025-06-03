@@ -8,5 +8,5 @@ jumble-proxy-server -a https://jumble.social -p 8080
 ```
 
 ```sh
-curl -X GET http://localhost:8080/sites/https:/www.youtube.com/watch\?v\=i-OZcpNSzg0
+curl -X GET http://localhost:8080/sites/https%3A%2F%2Fyoutu.be%2FNVm_jGdwTjQ%3Fsi%3DblYLT44WrrPjL9gU
 ```
