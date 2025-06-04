@@ -8,6 +8,7 @@ import (
 	"github.com/danvergara/jumble-proxy-server/pkg/config"
 )
 
+// proxyHandler adds headers to overcome the CORS errors for the Jumble Nostr client.
 func proxyHandler(config *config.Config) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		allowedOrigin := config.AllowedOrigin
@@ -16,10 +17,12 @@ func proxyHandler(config *config.Config) func(w http.ResponseWriter, r *http.Req
 			allowedOrigin = "*"
 		}
 
+		// add the paraters to fix CORS issues.
 		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
+		// get the site of interest from the path parameters.
 		site := r.PathValue("site")
 
 		// Send request to the target site.
@@ -40,8 +43,8 @@ func proxyHandler(config *config.Config) func(w http.ResponseWriter, r *http.Req
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Printf("Proxy request failed %v", err)
-			http.Error(w, "Proxy request failed", http.StatusBadGateway)
+			fmt.Printf("proxy request failed %v", err)
+			http.Error(w, "proxy request failed", http.StatusBadGateway)
 			return
 		}
 
