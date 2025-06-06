@@ -30,12 +30,11 @@ so that the client can show the URL preview from links' Open Graph data.`,
 		}
 
 		http.HandleFunc("GET /sites/{site}", proxyHandler)
+		log.Printf("server listening on port %s\n", port)
 		if err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil); err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
-
-		log.Printf("server listening on port %s\n", port)
 
 		return nil
 	},
@@ -93,8 +92,6 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 func init() {
 	rootCmd.AddCommand(serverCmd)
 
-	serverCmd.Flags().
-		StringVarP(&allowedOrigin, "allowed-origin", "a", "", "Restrict access to a specific allowed domain")
-	serverCmd.Flags().
-		StringVarP(&port, "port", "p", "", "Server Port")
+	port = os.Getenv("PORT")
+	allowedOrigin = os.Getenv("ALLOW_ORIGIN")
 }
