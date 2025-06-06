@@ -4,7 +4,7 @@ __This application is a proxy server used by the Jumble Nostr client as a workar
 
 ## Usage
 ```sh
-jumble-proxy-server -a https://jumble.social -p 8080
+ALLOW_ORIGIN=https://jumble.social PORT=8080 jumble-proxy-server server
 ```
 
 ```sh
