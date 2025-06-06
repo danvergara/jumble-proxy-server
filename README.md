@@ -29,7 +29,7 @@ docker pull ghcr.io/danvergara/jumble-proxy-server:latest
 Run the container;
 
 ```
-docker run docker run --rm -e ALLOW_ORIGIN=https://jumble.social -e PORT=8080 -p 8080:8080 ghcr.io/danvergara/jumble-proxy-server:latest
+docker run --rm -e ALLOW_ORIGIN=https://jumble.social -e PORT=8080 -p 8080:8080 ghcr.io/danvergara/jumble-proxy-server:latest
 
 ```
 
