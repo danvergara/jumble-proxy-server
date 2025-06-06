@@ -8,5 +8,6 @@ import (
 
 // addRoutes function adds the handler to the server mux.
 func addRoutes(mux *http.ServeMux, config *config.Config) {
-	mux.HandleFunc("GET /sites/{site}", proxyHandler(config))
+	proxy := http.HandlerFunc(proxyHandler(config))
+	mux.Handle("GET /sites/{site}", loggingMiddlware(proxy))
 }
