@@ -4,13 +4,15 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/danvergara/jumble-proxy-server/pkg/config"
+	"github.com/danvergara/jumble-proxy-server/pkg/server"
 )
 
 var (
@@ -29,64 +31,21 @@ so that the client can show the URL preview from links' Open Graph data.`,
 			port = "8000"
 		}
 
-		http.HandleFunc("GET /sites/{site}", proxyHandler)
+		cfg := config.Config{
+			Port:          port,
+			AllowedOrigin: allowedOrigin,
+		}
+
 		log.Printf("server listening on port %s\n", port)
-		if err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil); err != nil {
+
+		ctx := context.Background()
+		if err := server.Run(ctx, &cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
 
 		return nil
 	},
-}
-
-func proxyHandler(w http.ResponseWriter, r *http.Request) {
-	if allowedOrigin == "" {
-		allowedOrigin = "*"
-	}
-
-	w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-	w.Header().Set("Access-Control-Allow-Methods", "GET")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-	site := r.PathValue("site")
-
-	// Send request to the target site.
-	req, err := http.NewRequest(r.Method, site, r.Body)
-	if err != nil {
-		http.Error(w, "Failed to create request", http.StatusInternalServerError)
-		return
-	}
-
-	// Copy headers from original request.
-	for header, values := range r.Header {
-		for _, value := range values {
-			req.Header.Add(header, value)
-		}
-	}
-
-	// Perform the proxy request.
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Proxy request failed %v", err)
-		http.Error(w, "Proxy request failed", http.StatusBadGateway)
-		return
-	}
-
-	defer resp.Body.Close()
-
-	// Copy the response headers.
-	for header, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(header, value)
-		}
-	}
-
-	// Set the status code and write the response body.
-	w.WriteHeader(resp.StatusCode)
-	body, _ := io.ReadAll(resp.Body)
-	w.Write(body)
 }
 
 func init() {
