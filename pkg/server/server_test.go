@@ -50,6 +50,11 @@ func TestServer(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
+	allowOrigin := resp.Header["Access-Control-Allow-Origin"]
+	if allowOrigin[0] != "*" {
+		t.Fatalf("missing Access-Control-Allow-Origin headers")
+	}
+
 	// Read the response body.
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
