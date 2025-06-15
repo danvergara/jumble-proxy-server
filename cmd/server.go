@@ -16,8 +16,7 @@ import (
 )
 
 var (
-	port          string
-	allowedOrigin string
+	port string
 )
 
 // serverCmd represents the server command
@@ -32,8 +31,7 @@ so that the client can show the URL preview from links' Open Graph data.`,
 		}
 
 		cfg := config.Config{
-			Port:          port,
-			AllowedOrigin: allowedOrigin,
+			Port: port,
 		}
 
 		log.Printf("server listening on port %s\n", port)
@@ -52,5 +50,4 @@ func init() {
 	rootCmd.AddCommand(serverCmd)
 
 	port = os.Getenv("PORT")
-	allowedOrigin = os.Getenv("ALLOW_ORIGIN")
 }
