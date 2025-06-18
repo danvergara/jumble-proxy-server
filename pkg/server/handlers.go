@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 )
 
 // proxyHandler adds headers to overcome the CORS errors for the Jumble Nostr client.
@@ -45,6 +46,10 @@ func proxyHandler() func(w http.ResponseWriter, r *http.Request) {
 		// Copy the response headers.
 		for header, values := range resp.Header {
 			for _, value := range values {
+				// If w.Header contains the header and the value is already in it, continue
+				if _, ok := w.Header()[header]; ok && slices.Contains(w.Header()[header], value) {
+					continue
+				}
 				w.Header().Add(header, value)
 			}
 		}
