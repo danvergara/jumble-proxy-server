@@ -27,6 +27,7 @@ const htmlContent = `
 
 func htmlHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Write([]byte(htmlContent))
 }
 
@@ -51,8 +52,12 @@ func TestServer(t *testing.T) {
 	defer resp.Body.Close()
 
 	allowOrigin := resp.Header["Access-Control-Allow-Origin"]
+	if len(allowOrigin) > 1 {
+		t.Fatalf("Access-Control-Allow-Origin header contains undesired values %v\n", allowOrigin)
+	}
+
 	if allowOrigin[0] != "*" {
-		t.Fatalf("missing Access-Control-Allow-Origin headers")
+		t.Fatalf("missing Access-Control-Allow-Origin header")
 	}
 
 	// Read the response body.
