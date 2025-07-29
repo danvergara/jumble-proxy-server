@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"slices"
+	"strings"
 )
 
 // proxyHandler adds headers to overcome the CORS errors for the Jumble Nostr client.
 func proxyHandler() func(w http.ResponseWriter, r *http.Request) {
+	// Get token from environment variable
+	githubToken := os.Getenv("JUMBLE_PROXY_GITHUB_TOKEN")
 	return func(w http.ResponseWriter, r *http.Request) {
 		// add the paraters to fix CORS issues.
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -23,6 +27,17 @@ func proxyHandler() func(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "Failed to create request", http.StatusInternalServerError)
 			return
+		}
+
+		// Check if the target URL is GitHub.
+		if isGitHubURL(site) {
+			// Set GitHub-specific headers in the proxy.
+			req.Header.Set("Authorization", "Bearer "+githubToken)
+			req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; JumbleProxy/0.1)")
+			req.Header.Set(
+				"Accept",
+				"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			)
 		}
 
 		// Copy headers from original request.
@@ -59,4 +74,10 @@ func proxyHandler() func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(resp.Body)
 		w.Write(body)
 	}
+}
+
+func isGitHubURL(url string) bool {
+	return strings.Contains(strings.ToLower(url), "github.com") ||
+		strings.Contains(strings.ToLower(url), "api.github.com") ||
+		strings.Contains(strings.ToLower(url), "gist.github.com")
 }
