@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -37,8 +38,11 @@ func TestServer(t *testing.T) {
 	ctx, cancel := context.WithCancel(ctx)
 	t.Cleanup(cancel)
 
+	logger := slog.Default()
+
 	cfg := config.Config{
-		Port: "8080",
+		Port:   "8080",
+		Logger: logger,
 	}
 
 	site := httptest.NewServer(http.HandlerFunc(htmlHandler))
@@ -93,14 +97,29 @@ func TestProxyHandlerGitHub(t *testing.T) {
 			if auth := r.Header.Get("Authorization"); auth != "Bearer test-github-token" {
 				t.Errorf("Expected Authorization header 'Bearer test-github-token', got '%s'", auth)
 			}
-			if userAgent := r.Header.Get("User-Agent"); userAgent != "Mozilla/5.0 (compatible; JumbleProxy/0.1)" {
+			if userAgent := r.Header.Get("User-Agent"); userAgent != "JumbleProxy/1.0 (+https://github.com/danvergara/jumble-proxy-server)" {
 				t.Errorf(
-					"Expected User-Agent 'Mozilla/5.0 (compatible; JumbleProxy/0.1)', got '%s'",
+					"Expected User-Agent 'JumbleProxy/1.0 (+https://github.com/danvergara/jumble-proxy-server)', got '%s'",
 					userAgent,
 				)
 			}
-			if accept := r.Header.Get("Accept"); accept != "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" {
-				t.Errorf("Expected specific Accept header, got '%s'", accept)
+			if accept := r.Header.Get("Accept"); accept != "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8" {
+				t.Errorf("Expected Accept header 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8', got '%s'", accept)
+			}
+			if acceptLang := r.Header.Get("Accept-Language"); acceptLang != "en-US,en;q=0.5" {
+				t.Errorf("Expected Accept-Language header 'en-US,en;q=0.5', got '%s'", acceptLang)
+			}
+			if acceptEnc := r.Header.Get("Accept-Encoding"); acceptEnc != "gzip, deflate, br" {
+				t.Errorf("Expected Accept-Encoding header 'gzip, deflate, br', got '%s'", acceptEnc)
+			}
+			if dnt := r.Header.Get("DNT"); dnt != "1" {
+				t.Errorf("Expected DNT header '1', got '%s'", dnt)
+			}
+			if conn := r.Header.Get("Connection"); conn != "keep-alive" {
+				t.Errorf("Expected Connection header 'keep-alive', got '%s'", conn)
+			}
+			if upgrade := r.Header.Get("Upgrade-Insecure-Requests"); upgrade != "1" {
+				t.Errorf("Expected Upgrade-Insecure-Requests header '1', got '%s'", upgrade)
 			}
 
 			// Send back a mock GitHub response.
@@ -131,8 +150,10 @@ func TestProxyHandlerGitHub(t *testing.T) {
 			// Create a response recorder.
 			w := httptest.NewRecorder()
 
+			logger := slog.Default()
+
 			// Call the proxy handler.
-			handler := proxyHandler()
+			handler := proxyHandler(logger)
 			handler(w, req)
 
 			// Check response status.
