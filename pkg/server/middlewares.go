@@ -1,14 +1,15 @@
 package server
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 )
 
-func loggingMiddlware(next http.Handler) http.Handler {
+func loggingMiddlware(next http.Handler, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		site := r.PathValue("site")
-		log.Printf("fetching site: %s\n", site)
+		logger.Info(fmt.Sprintf("Fetching site: %s", site))
 		next.ServeHTTP(w, r)
 	})
 }

@@ -6,7 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -30,15 +30,20 @@ so that the client can show the URL preview from links' Open Graph data.`,
 			port = "8000"
 		}
 
+		jsonHandler := slog.NewJSONHandler(os.Stderr, nil)
+
+		logger := slog.New(jsonHandler)
+
 		cfg := config.Config{
-			Port: port,
+			Port:   port,
+			Logger: logger,
 		}
 
-		log.Printf("server listening on port %s\n", port)
+		logger.Info(fmt.Sprintf("Server listening on port %s", port))
 
 		ctx := context.Background()
 		if err := server.Run(ctx, &cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			logger.Error(fmt.Sprintf("Error running the server: %s", err))
 			os.Exit(1)
 		}
 
