@@ -160,7 +160,7 @@ func TestGithubClient_GetURLResourceType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := client.GetURLResourceType(tt.url)
+			result, err := client.getResourceFromURL(tt.url)
 
 			if tt.expectError && err == nil {
 				t.Errorf("GetURLResourceType() expected error, got nil")
