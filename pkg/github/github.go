@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v74/github"
 )
@@ -43,8 +44,9 @@ type URLResourceInfo struct {
 }
 
 type GitHubResponse struct {
-	Title string
-	Body  string
+	Title     string
+	Body      string
+	imgageSrc string
 }
 
 type GithubClient struct {
@@ -132,6 +134,14 @@ func (gc *GithubClient) QueryGitHubResource(
 		return resp, err
 	}
 
+	hash := time.Now().Unix()
+	baseURL := fmt.Sprintf(
+		"https://opengraph.githubassets.com/%d/%s/%s",
+		hash,
+		resourceInfo.Owner,
+		resourceInfo.Repo,
+	)
+
 	switch resourceInfo.Type {
 	case User:
 		u, _, err := gc.client.Users.Get(ctx, resourceInfo.Owner)
@@ -142,6 +152,7 @@ func (gc *GithubClient) QueryGitHubResource(
 		if u != nil {
 			resp.Title = u.GetName()
 			resp.Body = u.GetBio()
+			resp.imgageSrc = u.GetAvatarURL()
 		} else {
 			return resp, fmt.Errorf("error getting the GitHub user %s", resourceInfo.Owner)
 		}
@@ -156,6 +167,7 @@ func (gc *GithubClient) QueryGitHubResource(
 		if repo != nil {
 			resp.Title = repo.GetFullName()
 			resp.Body = repo.GetDescription()
+			resp.imgageSrc = baseURL
 		} else {
 			return resp, fmt.Errorf("error getting the GitHub repository %s", resourceInfo.Repo)
 		}
@@ -175,6 +187,7 @@ func (gc *GithubClient) QueryGitHubResource(
 		if pr != nil {
 			resp.Title = pr.GetTitle()
 			resp.Body = pr.GetBody()
+			resp.imgageSrc = fmt.Sprintf("%s/issues/%d", baseURL, resourceInfo.Number)
 		} else {
 			return resp, fmt.Errorf("error getting the GitHub pull request #%d from %s repository", resourceInfo.Number, resourceInfo.Repo)
 		}
@@ -190,9 +203,11 @@ func (gc *GithubClient) QueryGitHubResource(
 		if err != nil {
 			return resp, err
 		}
+
 		if issue != nil {
 			resp.Title = issue.GetTitle()
 			resp.Body = issue.GetBody()
+			resp.imgageSrc = fmt.Sprintf("%s/pull/%d", baseURL, resourceInfo.Number)
 		} else {
 			return resp, fmt.Errorf("error getting the GitHub issue #%d from %s repository", resourceInfo.Number, resourceInfo.Repo)
 		}
