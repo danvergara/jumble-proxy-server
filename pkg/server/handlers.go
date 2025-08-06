@@ -8,6 +8,8 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/danvergara/jumble-proxy-server/pkg/github"
 )
 
 // proxyHandler adds headers to overcome the CORS errors for the Jumble Nostr client.
@@ -32,21 +34,20 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 
 		// Check if the target URL is GitHub.
 		if isGitHubURL(site) {
-			// Set GitHub-specific headers in the proxy.
-			req.Header.Set("Authorization", "Bearer "+githubToken)
-			req.Header.Set(
-				"User-Agent",
-				"JumbleProxy/1.0 (+https://github.com/danvergara/jumble-proxy-server)",
-			)
-			req.Header.Set(
-				"Accept",
-				"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-			)
-			req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-			req.Header.Set("Accept-Encoding", "gzip, deflate, br")
-			req.Header.Set("DNT", "1")
-			req.Header.Set("Connection", "keep-alive")
-			req.Header.Set("Upgrade-Insecure-Requests", "1")
+			gc := github.New(githubToken)
+			resp, err := gc.GenerateGithubOpenGraph(r.Context(), site)
+			if err != nil {
+				http.Error(
+					w,
+					"Failed to generate the GitHub Open Graph HTML response",
+					http.StatusInternalServerError,
+				)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(resp))
+			return
 		}
 
 		// Copy headers from original request.

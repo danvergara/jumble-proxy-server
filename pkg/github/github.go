@@ -53,6 +53,12 @@ type GithubClient struct {
 	client *github.Client
 }
 
+func New(apiKey string) *GithubClient {
+	c := github.NewClient(nil).WithAuthToken(apiKey)
+
+	return &GithubClient{client: c}
+}
+
 // IsGitHubURL method determines if a given URL belongs to GitHub.
 func (gc *GithubClient) IsGitHubURL(url string) bool {
 	return strings.Contains(strings.ToLower(url), "github.com") ||
@@ -122,8 +128,8 @@ func (gc *GithubClient) getResourceFromURL(rawURL string) (URLResourceInfo, erro
 	return result, nil
 }
 
-// QueryGitHubResource returns the title/name and a description/bio of the resource, based on what it is asked for.
-func (gc *GithubClient) QueryGitHubResource(
+// queryGitHubResource returns the title/name and a description/bio of the resource, based on what it is asked for.
+func (gc *GithubClient) queryGitHubResource(
 	ctx context.Context,
 	rawURL string,
 ) (GitHubResponse, error) {
@@ -187,7 +193,7 @@ func (gc *GithubClient) QueryGitHubResource(
 		if pr != nil {
 			resp.Title = pr.GetTitle()
 			resp.Body = pr.GetBody()
-			resp.imgageSrc = fmt.Sprintf("%s/issues/%d", baseURL, resourceInfo.Number)
+			resp.imgageSrc = fmt.Sprintf("%s/pull/%d", baseURL, resourceInfo.Number)
 		} else {
 			return resp, fmt.Errorf("error getting the GitHub pull request #%d from %s repository", resourceInfo.Number, resourceInfo.Repo)
 		}
@@ -207,7 +213,7 @@ func (gc *GithubClient) QueryGitHubResource(
 		if issue != nil {
 			resp.Title = issue.GetTitle()
 			resp.Body = issue.GetBody()
-			resp.imgageSrc = fmt.Sprintf("%s/pull/%d", baseURL, resourceInfo.Number)
+			resp.imgageSrc = fmt.Sprintf("%s/issues/%d", baseURL, resourceInfo.Number)
 		} else {
 			return resp, fmt.Errorf("error getting the GitHub issue #%d from %s repository", resourceInfo.Number, resourceInfo.Repo)
 		}
@@ -216,4 +222,39 @@ func (gc *GithubClient) QueryGitHubResource(
 	default:
 		return resp, fmt.Errorf("resource type unknown %s", resourceInfo.Type)
 	}
+}
+
+func (gc *GithubClient) GenerateGithubOpenGraph(
+	ctx context.Context,
+	rawURL string,
+) (string, error) {
+	resp, err := gc.queryGitHubResource(ctx, rawURL)
+	if err != nil {
+		return "", err
+	}
+
+	htmlContent := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>%s</title>
+    <meta property="og:title" content="%s">
+    <meta property="og:description" content="%s">
+    <meta property="og:url" content="%s">
+    <meta property="og:image" content="%s">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="GitHub">
+</head>
+<body>
+    <h1>%s</h1>
+    <p>%s</p>
+    <img src="%s" alt="Preview" style="max-width: 100%%; height: auto;">
+</body>
+</html>`,
+		resp.Title, resp.Title, resp.Body, rawURL, resp.imgageSrc,
+		resp.Title, resp.Body, resp.imgageSrc)
+
+	return htmlContent, nil
 }
