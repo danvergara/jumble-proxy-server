@@ -183,7 +183,7 @@ func proxyHandler(cfg *config.Config) func(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(resp.StatusCode)
 		_, err = io.Copy(w, resp.Body)
 		if err != nil {
-			logger.Error(fmt.Sprintf("Error copying response body: %v", err))
+			cfg.Logger.Error(fmt.Sprintf("Error copying response body: %v", err))
 		}
 	}
 }
