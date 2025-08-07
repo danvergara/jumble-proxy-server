@@ -10,7 +10,7 @@ import (
 
 // addRoutes function adds the handler to the server mux.
 func addRoutes(mux *http.ServeMux, cfg *config.Config) {
-	proxy := http.HandlerFunc(proxyHandler(cfg.Logger))
+	proxy := http.HandlerFunc(proxyHandler(cfg))
 	mux.Handle("GET /sites/{site}", loggingMiddlware(proxy, cfg.Logger))
 
 	// Add pprof routes only if enabled
