@@ -18,7 +18,7 @@ curl:
 .PHONY: docker-run
 ## docker-run: Run the container
 docker-run: docker-build
-	@docker run --rm -e PORT=8080 -p 8080:8080 jumble-proxy-server:latest
+	@docker run --rm -e ENABLE_PPROF=true -e PORT=8080 -p 8080:8080 jumble-proxy-server:latest
 
 .PHONY: test
 ## test: Runs the tests
