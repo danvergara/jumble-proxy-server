@@ -141,8 +141,10 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 
 		// Set the status code and write the response body.
 		w.WriteHeader(resp.StatusCode)
-		body, _ := io.ReadAll(resp.Body)
-		w.Write(body)
+		_, err = io.Copy(w, resp.Body)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Error copying response body: %v", err))
+		}
 	}
 }
 
