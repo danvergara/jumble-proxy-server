@@ -19,6 +19,7 @@ const (
 	Repository
 	Issue
 	PullRequest
+	Release
 )
 
 func (rt ResourceType) String() string {
@@ -31,16 +32,19 @@ func (rt ResourceType) String() string {
 		return "issue"
 	case PullRequest:
 		return "pull_request"
+	case Release:
+		return "release"
 	default:
 		return "unknown"
 	}
 }
 
 type URLResourceInfo struct {
-	Type   ResourceType
-	Owner  string
-	Repo   string
-	Number int // For issues and PRs
+	Type    ResourceType
+	Owner   string
+	Repo    string
+	Number  int // For issues and PRs
+	Version string
 }
 
 type GitHubResponse struct {
@@ -119,7 +123,19 @@ func (gc *GithubClient) getResourceFromURL(rawURL string) (URLResourceInfo, erro
 			result.Type = Unknown
 			return result, err
 		}
+	case 5:
+		// https://github.com/owner/repo/releases/tag/v0.1.0
+		result.Owner = pathParts[0]
+		result.Repo = pathParts[1]
 
+		if pathParts[2] == "releases" {
+			result.Type = Release
+		} else {
+			result.Type = Unknown
+			return result, nil
+		}
+
+		result.Version = pathParts[4]
 	default:
 		// Other GitHub URLs (releases, commits, etc.)
 		result.Type = Unknown
@@ -216,6 +232,26 @@ func (gc *GithubClient) queryGitHubResource(
 			resp.imgageSrc = fmt.Sprintf("%s/issues/%d", baseURL, resourceInfo.Number)
 		} else {
 			return resp, fmt.Errorf("error getting the GitHub issue #%d from %s repository", resourceInfo.Number, resourceInfo.Repo)
+		}
+
+		return resp, nil
+	case Release:
+		release, _, err := gc.client.Repositories.GetReleaseByTag(
+			ctx,
+			resourceInfo.Owner,
+			resourceInfo.Repo,
+			resourceInfo.Version,
+		)
+		if err != nil {
+			return resp, err
+		}
+
+		if release != nil {
+			resp.Title = fmt.Sprintf("%s %s", resourceInfo.Repo, release.GetTagName())
+			resp.Body = release.GetBody()
+			resp.imgageSrc = fmt.Sprintf("%s/releases/tag/%s", baseURL, resourceInfo.Version)
+		} else {
+			return resp, fmt.Errorf("error getting the GitHub release %s from %s repository", resourceInfo.Version, resourceInfo.Repo)
 		}
 
 		return resp, nil
