@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/coocood/freecache"
 	"github.com/spf13/cobra"
 
 	"github.com/danvergara/jumble-proxy-server/pkg/config"
@@ -37,6 +38,7 @@ so that the client can show the URL preview from links' Open Graph data.`,
 		cfg := config.Config{
 			Port:   port,
 			Logger: logger,
+			Cache:  freecache.NewCache(100 * 1024 * 1024),
 		}
 
 		logger.Info(fmt.Sprintf("Server listening on port %s", port))

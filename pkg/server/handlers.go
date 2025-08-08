@@ -3,15 +3,17 @@ package server
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/danvergara/jumble-proxy-server/pkg/config"
+	"github.com/danvergara/jumble-proxy-server/pkg/github"
 )
 
 // proxyHandler adds headers to overcome the CORS errors for the Jumble Nostr client.
-func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Request) {
+func proxyHandler(cfg *config.Config) func(w http.ResponseWriter, r *http.Request) {
 	// Get token from environment variable
 	githubToken := os.Getenv("JUMBLE_PROXY_GITHUB_TOKEN")
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -32,21 +34,59 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 
 		// Check if the target URL is GitHub.
 		if isGitHubURL(site) {
-			// Set GitHub-specific headers in the proxy.
-			req.Header.Set("Authorization", "Bearer "+githubToken)
-			req.Header.Set(
-				"User-Agent",
-				"JumbleProxy/1.0 (+https://github.com/danvergara/jumble-proxy-server)",
+			gc := github.New(githubToken)
+
+			value, err := cfg.Cache.Get([]byte(site))
+			// The Get method returns not found error when the key does not exist in the cache.
+			if err != nil {
+				resp, err := gc.GenerateGithubOpenGraph(r.Context(), site)
+				if err != nil {
+					http.Error(
+						w,
+						"Failed to generate the GitHub Open Graph HTML response",
+						http.StatusInternalServerError,
+					)
+					return
+				}
+
+				cfg.Logger.Info(
+					fmt.Sprintf("Fetch Open Graph data from the GitHub API for the site: %s", site),
+				)
+
+				// Stores the HTML file with the Open Graph data.
+				// Expire in 1 hour.
+				if err := cfg.Cache.Set([]byte(site), []byte(resp), 3600); err != nil {
+					cfg.Logger.Error(
+						fmt.Sprintf(
+							"Failed to store the html file in the cache from the site: %s",
+							site,
+						),
+					)
+				}
+
+				cfg.Logger.Info(
+					fmt.Sprintf(
+						"HTML document with Open Graph data from GitHub successfully stored in the cache for the %s site",
+						site,
+					),
+				)
+
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(resp))
+				return
+			}
+
+			cfg.Logger.Info(
+				fmt.Sprintf(
+					"HTML document with Open Graph data from Github found in cache for the %s site",
+					site,
+				),
 			)
-			req.Header.Set(
-				"Accept",
-				"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-			)
-			req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-			req.Header.Set("Accept-Encoding", "gzip, deflate, br")
-			req.Header.Set("DNT", "1")
-			req.Header.Set("Connection", "keep-alive")
-			req.Header.Set("Upgrade-Insecure-Requests", "1")
+
+			// Return the stored HTML document.
+			w.WriteHeader(http.StatusOK)
+			w.Write(value)
+			return
 		}
 
 		// Copy headers from original request.
@@ -61,7 +101,7 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 		resp, err := client.Do(req)
 		if err != nil {
 			// More detailed logging for debugging the 502 issue
-			logger.Error(
+			cfg.Logger.Error(
 				fmt.Sprintf("Proxy error - URL: %s, Error: %v, Error Type: %T", site, err, err),
 			)
 			http.Error(w, fmt.Sprintf("proxy request failed: %v", err), http.StatusBadGateway)
@@ -73,7 +113,7 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 		if resp.StatusCode >= http.StatusBadRequest {
 			switch resp.StatusCode {
 			case http.StatusTooManyRequests:
-				logger.Error(
+				cfg.Logger.Error(
 					fmt.Sprintf(
 						"Rate limit exceeded - URL: %s, Status: %d",
 						site,
@@ -87,7 +127,7 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 				)
 				return
 			case http.StatusForbidden:
-				logger.Error(
+				cfg.Logger.Error(
 					fmt.Sprintf(
 						"Access denied - URL: %s, Status: %d",
 						site,
@@ -101,7 +141,7 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 				)
 				return
 			case http.StatusServiceUnavailable:
-				logger.Error(
+				cfg.Logger.Error(
 					fmt.Sprintf(
 						"Service unavailable - URL: %s, Status: %d",
 						site,
@@ -115,7 +155,7 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 				)
 				return
 			default:
-				logger.Error(
+				cfg.Logger.Error(
 					fmt.Sprintf(
 						"Proxy error - URL: %s, Status: %d",
 						site,
@@ -127,7 +167,7 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 			}
 		}
 		// Log successful requests too, to see what's working
-		logger.Info(fmt.Sprintf("Proxy success - URL: %s, Status: %d", site, resp.StatusCode))
+		cfg.Logger.Info(fmt.Sprintf("Proxy success - URL: %s, Status: %d", site, resp.StatusCode))
 		// Copy the response headers.
 		for header, values := range resp.Header {
 			for _, value := range values {
@@ -143,7 +183,7 @@ func proxyHandler(logger *slog.Logger) func(w http.ResponseWriter, r *http.Reque
 		w.WriteHeader(resp.StatusCode)
 		_, err = io.Copy(w, resp.Body)
 		if err != nil {
-			logger.Error(fmt.Sprintf("Error copying response body: %v", err))
+			cfg.Logger.Error(fmt.Sprintf("Error copying response body: %v", err))
 		}
 	}
 }
