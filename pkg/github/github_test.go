@@ -80,13 +80,14 @@ func TestGithubClient_GetURLResourceType(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "unknown resource type - releases",
+			name: "release tag",
 			url:  "https://github.com/owner/repo/releases/tag/v1.0.0",
 			expected: URLResourceInfo{
-				Type:   Unknown,
-				Owner:  "",
-				Repo:   "",
-				Number: 0,
+				Type:    Release,
+				Owner:   "owner",
+				Repo:    "repo",
+				Number:  0,
+				Version: "v1.0.0",
 			},
 			expectError: false,
 		},
@@ -156,6 +157,54 @@ func TestGithubClient_GetURLResourceType(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "release with semantic version",
+			url:  "https://github.com/golang/go/releases/tag/go1.21.0",
+			expected: URLResourceInfo{
+				Type:    Release,
+				Owner:   "golang",
+				Repo:    "go",
+				Number:  0,
+				Version: "go1.21.0",
+			},
+			expectError: false,
+		},
+		{
+			name: "release without v prefix",
+			url:  "https://github.com/owner/repo/releases/tag/1.0.0",
+			expected: URLResourceInfo{
+				Type:    Release,
+				Owner:   "owner",
+				Repo:    "repo",
+				Number:  0,
+				Version: "1.0.0",
+			},
+			expectError: false,
+		},
+		{
+			name: "release with complex tag",
+			url:  "https://github.com/owner/repo/releases/tag/release-2023.10.15",
+			expected: URLResourceInfo{
+				Type:    Release,
+				Owner:   "owner",
+				Repo:    "repo",
+				Number:  0,
+				Version: "release-2023.10.15",
+			},
+			expectError: false,
+		},
+		{
+			name: "release with trailing slash",
+			url:  "https://github.com/owner/repo/releases/tag/v2.0.0/",
+			expected: URLResourceInfo{
+				Type:    Release,
+				Owner:   "owner",
+				Repo:    "repo",
+				Number:  0,
+				Version: "v2.0.0",
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -201,6 +250,14 @@ func TestGithubClient_GetURLResourceType(t *testing.T) {
 					tt.expected.Number,
 				)
 			}
+
+			if result.Version != tt.expected.Version {
+				t.Errorf(
+					"GetURLResourceType() Version = %v, expected %v",
+					result.Version,
+					tt.expected.Version,
+				)
+			}
 		})
 	}
 }
@@ -214,6 +271,7 @@ func TestResourceType_String(t *testing.T) {
 		{Repository, "repository"},
 		{Issue, "issue"},
 		{PullRequest, "pull_request"},
+		{Release, "release"},
 		{Unknown, "unknown"},
 	}
 
