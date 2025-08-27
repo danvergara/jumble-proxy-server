@@ -293,7 +293,24 @@ func (gc *GithubClient) queryGitHubResource(
 
 		return resp, nil
 	default:
-		return resp, fmt.Errorf("resource type unknown %s", resourceInfo.Type)
+		if resourceInfo.Owner != "" && resourceInfo.Repo != "" {
+			repo, _, err := gc.client.Repositories.Get(ctx, resourceInfo.Owner, resourceInfo.Repo)
+			if err != nil {
+				return resp, err
+			}
+
+			if repo != nil {
+				resp.Title = repo.GetFullName()
+				resp.Body = repo.GetDescription()
+				resp.imgageSrc = baseURL
+			} else {
+				return resp, fmt.Errorf("error getting the GitHub repository %s", resourceInfo.Repo)
+			}
+
+			return resp, nil
+		} else {
+			return resp, fmt.Errorf("resource type unknown %s", resourceInfo.Type)
+		}
 	}
 }
 
