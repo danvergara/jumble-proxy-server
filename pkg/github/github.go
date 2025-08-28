@@ -20,6 +20,7 @@ const (
 	Issue
 	PullRequest
 	Release
+	Commit
 )
 
 func (rt ResourceType) String() string {
@@ -34,6 +35,8 @@ func (rt ResourceType) String() string {
 		return "pull_request"
 	case Release:
 		return "release"
+	case Commit:
+		return "commit"
 	default:
 		return "unknown"
 	}
@@ -44,6 +47,7 @@ type URLResourceInfo struct {
 	Owner   string
 	Repo    string
 	Number  int // For issues and PRs
+	SHA     string
 	Version string
 }
 
@@ -104,25 +108,34 @@ func (gc *GithubClient) getResourceFromURL(rawURL string) (URLResourceInfo, erro
 	case 4:
 		// https://github.com/owner/repo/issues/123
 		// https://github.com/owner/repo/pull/456
+		// https://github.com/owner/repo/commit/fe114c64733d850007f181bb029d9cc2237efe0f
 		result.Owner = pathParts[0]
 		result.Repo = pathParts[1]
 
-		if pathParts[2] == "issues" {
+		switch pathParts[2] {
+		case "issues":
 			result.Type = Issue
-		} else if pathParts[2] == "pull" {
+		case "pull":
 			result.Type = PullRequest
-		} else {
+		case "commit":
+			result.Type = Commit
+		default:
 			result.Type = Unknown
 			return result, nil
 		}
 
-		// Parse the number
-		if number, err := strconv.Atoi(pathParts[3]); err == nil {
-			result.Number = number
-		} else {
-			result.Type = Unknown
-			return result, err
+		switch pathParts[2] {
+		case "issues", "pull":
+			if number, err := strconv.Atoi(pathParts[3]); err == nil {
+				result.Number = number
+			} else {
+				result.Type = Unknown
+				return result, err
+			}
+		case "commit":
+			result.SHA = pathParts[3]
 		}
+		// Parse the number
 	case 5:
 		// https://github.com/owner/repo/releases/tag/v0.1.0
 		result.Owner = pathParts[0]
@@ -137,7 +150,6 @@ func (gc *GithubClient) getResourceFromURL(rawURL string) (URLResourceInfo, erro
 
 		result.Version = pathParts[4]
 	default:
-		// Other GitHub URLs (releases, commits, etc.)
 		result.Type = Unknown
 	}
 
@@ -235,6 +247,31 @@ func (gc *GithubClient) queryGitHubResource(
 		}
 
 		return resp, nil
+	case Commit:
+		commit, _, err := gc.client.Repositories.GetCommit(
+			ctx,
+			resourceInfo.Owner,
+			resourceInfo.Repo,
+			resourceInfo.SHA,
+			nil,
+		)
+		if err != nil {
+			return resp, err
+		}
+
+		if commit != nil {
+			shortSHA := commit.GetSHA()
+			if len(shortSHA) > 7 {
+				shortSHA = shortSHA[:7]
+			}
+			description := fmt.Sprintf("%s/%s@%s", resourceInfo.Owner, resourceInfo.Repo, shortSHA)
+			resp.Title = commit.GetCommit().GetMessage()
+			resp.Body = description
+			resp.imgageSrc = fmt.Sprintf("%s/commit/%s", baseURL, resourceInfo.SHA)
+		} else {
+			return resp, fmt.Errorf("error getting the GitHub commit %s from %s repository", resourceInfo.SHA, resourceInfo.Repo)
+		}
+		return resp, nil
 	case Release:
 		release, _, err := gc.client.Repositories.GetReleaseByTag(
 			ctx,
@@ -256,7 +293,24 @@ func (gc *GithubClient) queryGitHubResource(
 
 		return resp, nil
 	default:
-		return resp, fmt.Errorf("resource type unknown %s", resourceInfo.Type)
+		if resourceInfo.Owner != "" && resourceInfo.Repo != "" {
+			repo, _, err := gc.client.Repositories.Get(ctx, resourceInfo.Owner, resourceInfo.Repo)
+			if err != nil {
+				return resp, err
+			}
+
+			if repo != nil {
+				resp.Title = repo.GetFullName()
+				resp.Body = repo.GetDescription()
+				resp.imgageSrc = baseURL
+			} else {
+				return resp, fmt.Errorf("error getting the GitHub repository %s", resourceInfo.Repo)
+			}
+
+			return resp, nil
+		} else {
+			return resp, fmt.Errorf("resource type unknown %s", resourceInfo.Type)
+		}
 	}
 }
 

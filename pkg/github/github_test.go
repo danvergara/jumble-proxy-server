@@ -92,13 +92,14 @@ func TestGithubClient_GetURLResourceType(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "unknown resource type - commits",
+			name: "commits",
 			url:  "https://github.com/owner/repo/commit/abc123",
 			expected: URLResourceInfo{
-				Type:   Unknown,
+				Type:   Commit,
 				Owner:  "owner",
 				Repo:   "repo",
 				Number: 0,
+				SHA:    "fe114c64733d850007f181bb029d9cc2237efe0f",
 			},
 			expectError: false,
 		},
@@ -272,6 +273,7 @@ func TestResourceType_String(t *testing.T) {
 		{Issue, "issue"},
 		{PullRequest, "pull_request"},
 		{Release, "release"},
+		{Commit, "commit"},
 		{Unknown, "unknown"},
 	}
 
