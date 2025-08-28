@@ -15,7 +15,7 @@ CGO_ENABLED=0 go build -o bin/jumble-proxy-server .
 Run the binary with environment variables:
 
 ```sh
-ALLOW_ORIGIN=https://jumble.social PORT=8080 bin/jumble-proxy-server server
+JUMBLE_PROXY_GITHUB_TOKEN=${JUMBLE_PROXY_GITHUB_TOKEN} ENABLE_PPROF=true PORT=8080 bin/jumble-proxy-server server
 ```
 
 ### Using Docker
